@@ -55,6 +55,7 @@
 #include "xe_vram.h"
 #include "xe_wait_user_fence.h"
 #include "xe_wa.h"
+#include "xe_eudebug.h"
 
 #include <generated/xe_wa_oob.h>
 
@@ -79,6 +80,15 @@ static int xe_file_open(struct drm_device *dev, struct drm_file *file)
 	xef->client = client;
 	xef->xe = xe;
 
+	mutex_lock(&xe->files.lock);
+	ret = xa_alloc(&xe->files.xa, &xef->id, xef, xa_limit_32b, GFP_KERNEL);
+	mutex_unlock(&xe->files.lock);
+	if (ret) {
+		xe_drm_client_put(client);
+		kfree(xef);
+		return -ENOMEM;
+	}
+
 	mutex_init(&xef->vm.lock);
 	xa_init_flags(&xef->vm.xa, XA_FLAGS_ALLOC1);
 
@@ -91,6 +101,8 @@ static int xe_file_open(struct drm_device *dev, struct drm_file *file)
 
 	file->driver_priv = xef;
 	kref_init(&xef->refcount);
+
+	xe_eudebug_file_open(xef);
 
 	return 0;
 }
@@ -149,6 +161,12 @@ static void xe_file_close(struct drm_device *dev, struct drm_file *file)
 
 	xe_pm_runtime_get(xe);
 
+	xe_eudebug_file_close(xef);
+
+	mutex_lock(&xef->xe->files.lock);
+	xa_erase(&xef->xe->files.xa, xef->id);
+	mutex_unlock(&xef->xe->files.lock);
+
 	/*
 	 * No need for exec_queue.lock here as there is no contention for it
 	 * when FD is closing as IOCTLs presumably can't be modifying the
@@ -187,6 +205,7 @@ static const struct drm_ioctl_desc xe_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(XE_WAIT_USER_FENCE, xe_wait_user_fence_ioctl,
 			  DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(XE_OBSERVATION, xe_observation_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(XE_EUDEBUG_CONNECT, xe_eudebug_connect_ioctl, DRM_RENDER_ALLOW),
 };
 
 static long xe_drm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -276,6 +295,8 @@ static void xe_device_destroy(struct drm_device *dev, void *dummy)
 {
 	struct xe_device *xe = to_xe_device(dev);
 
+	xe_eudebug_fini(xe);
+
 	if (xe->preempt_fence_wq)
 		destroy_workqueue(xe->preempt_fence_wq);
 
@@ -321,6 +342,9 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 	spin_lock_init(&xe->irq.lock);
 	spin_lock_init(&xe->clients.lock);
 
+	drmm_mutex_init(&xe->drm, &xe->files.lock);
+	xa_init_flags(&xe->files.xa, XA_FLAGS_ALLOC);
+
 	init_waitqueue_head(&xe->ufence_wq);
 
 	err = drmm_mutex_init(&xe->drm, &xe->usm.lock);
@@ -347,7 +371,10 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 	INIT_LIST_HEAD(&xe->pinned.external_vram);
 	INIT_LIST_HEAD(&xe->pinned.evicted);
 
+	xe_eudebug_init(xe);
+
 	xe->preempt_fence_wq = alloc_ordered_workqueue("xe-preempt-fence-wq", 0);
+
 	xe->ordered_wq = alloc_ordered_workqueue("xe-ordered-wq", 0);
 	xe->unordered_wq = alloc_workqueue("xe-unordered-wq", 0, 0);
 	if (!xe->ordered_wq || !xe->unordered_wq ||
