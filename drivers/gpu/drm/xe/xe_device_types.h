@@ -355,6 +355,15 @@ struct xe_device {
 		u64 count;
 	} clients;
 
+	/** @files: xe_file array (opens) */
+	struct {
+		/** @xa: xe files xarray */
+		struct xarray xa;
+
+		/** @lock: Protects xe_file list */
+		struct mutex lock;
+	} files;
+
 	/** @usm: unified memory state */
 	struct {
 		/** @usm.asid: convert a ASID to VM */
@@ -492,6 +501,20 @@ struct xe_device {
 	u8 vm_inject_error_position;
 #endif
 
+	/** @debugger connection list and globals for device */
+	struct {
+		/** @lock: protects the list of connections */
+		spinlock_t lock;
+		/** @list: list of connections, aka debuggers */
+		struct list_head list;
+
+		/** @session_count: session counter to track connections */
+		u64 session_count;
+
+		/** @available: is the debugging functionality available */
+		bool available;
+	} eudebug;
+
 	/* private: */
 
 #if IS_ENABLED(CONFIG_DRM_XE_DISPLAY)
@@ -584,6 +607,9 @@ struct xe_file {
 
 	/** @refcount: ref count of this xe file */
 	struct kref refcount;
+
+	/** @id: id into xe_device.files.xa */
+	u32 id;
 };
 
 #endif
