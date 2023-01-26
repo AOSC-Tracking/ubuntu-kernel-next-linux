@@ -22,6 +22,7 @@
 #include "xe_ring_ops_types.h"
 #include "xe_trace.h"
 #include "xe_vm.h"
+#include "xe_eudebug.h"
 
 enum xe_exec_queue_sched_prop {
 	XE_EXEC_QUEUE_JOB_TIMEOUT = 0,
@@ -636,6 +637,8 @@ int xe_exec_queue_create_ioctl(struct drm_device *dev, void *data,
 
 	args->exec_queue_id = id;
 
+	xe_eudebug_exec_queue_create(xef, q);
+
 	return 0;
 
 kill_exec_queue:
@@ -806,6 +809,8 @@ int xe_exec_queue_destroy_ioctl(struct drm_device *dev, void *data,
 	mutex_unlock(&xef->exec_queue.lock);
 	if (XE_IOCTL_DBG(xe, !q))
 		return -ENOENT;
+
+	xe_eudebug_exec_queue_destroy(xef, q);
 
 	xe_exec_queue_kill(q);
 
