@@ -428,6 +428,12 @@ xe_eudebug_get(struct xe_file *xef)
 	if (!d)
 		return NULL;
 
+	if (!xe_eudebug_detached(d) &&
+	    !completion_done(&d->discovery) &&
+	    wait_for_completion_killable_timeout(&d->discovery,
+						 HZ * 40) <= 0)
+		xe_eudebug_disconnect(d, -ETIMEDOUT);
+
 	if (xe_eudebug_detached(d)) {
 		xe_eudebug_put(d);
 		return NULL;
@@ -835,6 +841,8 @@ static const struct file_operations fops = {
 	.unlocked_ioctl	= xe_eudebug_ioctl,
 };
 
+static void discovery_work_fn(struct work_struct *work);
+
 static int
 xe_eudebug_connect(struct xe_device *xe,
 		   struct drm_xe_eudebug_connect *param)
@@ -869,9 +877,11 @@ xe_eudebug_connect(struct xe_device *xe,
 	spin_lock_init(&d->connection.lock);
 	init_waitqueue_head(&d->events.write_done);
 	init_waitqueue_head(&d->events.read_done);
+	init_completion(&d->discovery);
 
 	spin_lock_init(&d->events.lock);
 	INIT_KFIFO(d->events.fifo);
+	INIT_WORK(&d->discovery_work, discovery_work_fn);
 
 	d->res = xe_eudebug_resources_alloc();
 	if (IS_ERR(d->res)) {
@@ -888,6 +898,9 @@ xe_eudebug_connect(struct xe_device *xe,
 		err = fd;
 		goto err_detach;
 	}
+
+	kref_get(&d->ref);
+	queue_work(xe->eudebug.ordered_wq, &d->discovery_work);
 
 	eu_dbg(d, "connected session %lld", d->session);
 
@@ -1106,4 +1119,83 @@ void xe_eudebug_vm_destroy(struct xe_file *xef, struct xe_vm *vm)
 		return;
 
 	xe_eudebug_event_put(d, vm_destroy_event(d, xef, vm));
+}
+
+static int discover_client(struct xe_eudebug *d, struct xe_file *xef)
+{
+	struct xe_vm *vm;
+	unsigned long i;
+	int err;
+
+	err = client_create_event(d, xef);
+	if (err)
+		return err;
+
+	mutex_lock(&xef->vm.lock);
+	xa_for_each(&xef->vm.xa, i, vm) {
+		err = vm_create_event(d, xef, vm);
+		if (err)
+			break;
+	}
+	mutex_unlock(&xef->vm.lock);
+
+	return err;
+}
+
+static bool xe_eudebug_task_match(struct xe_eudebug *d, struct xe_file *xef)
+{
+	struct task_struct *task;
+	bool match;
+
+	task = find_task_get(xef);
+	if (!task)
+		return false;
+
+	match = same_thread_group(d->target_task, task);
+
+	put_task_struct(task);
+
+	return match;
+}
+
+static void discover_clients(struct xe_device *xe, struct xe_eudebug *d)
+{
+	struct xe_file *xef;
+	unsigned long i;
+	int err;
+
+	mutex_lock(&xe->files.lock);
+	xa_for_each(&xe->files.xa, i, xef) {
+		if (xe_eudebug_detached(d))
+			break;
+
+		if (xe_eudebug_task_match(d, xef))
+			err = discover_client(d, xef);
+		else
+			err = 0;
+
+		if (err) {
+			eu_dbg(d, "discover client %p: %d\n", xef, err);
+			xe_eudebug_disconnect(d, err);
+			break;
+		}
+	}
+	mutex_unlock(&xe->files.lock);
+}
+
+static void discovery_work_fn(struct work_struct *work)
+{
+	struct xe_eudebug *d = container_of(work, typeof(*d),
+					    discovery_work);
+	struct xe_device *xe = d->xe;
+
+	eu_dbg(d, "Discovery start for %lld\n", d->session);
+
+	discover_clients(xe, d);
+
+	eu_dbg(d, "Discovery end for %lld\n", d->session);
+
+	complete_all(&d->discovery);
+
+	xe_eudebug_put(d);
 }
