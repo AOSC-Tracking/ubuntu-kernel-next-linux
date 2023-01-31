@@ -513,6 +513,9 @@ struct xe_device {
 
 		/** @available: is the debugging functionality available */
 		bool available;
+
+		/** @ordered_wq: used to discovery */
+		struct workqueue_struct *ordered_wq;
 	} eudebug;
 
 	/* private: */
