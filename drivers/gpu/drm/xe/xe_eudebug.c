@@ -11,11 +11,19 @@
 
 #include <drm/drm_managed.h>
 
+#include <generated/xe_wa_oob.h>
+
+#include "regs/xe_gt_regs.h"
+#include "regs/xe_engine_regs.h"
+
 #include "xe_device.h"
 #include "xe_assert.h"
 #include "xe_macros.h"
 #include "xe_vm.h"
 #include "xe_exec_queue.h"
+#include "xe_reg_sr.h"
+#include "xe_rtp.h"
+#include "xe_wa.h"
 
 #include "xe_eudebug_types.h"
 #include "xe_eudebug.h"
@@ -928,6 +936,68 @@ int xe_eudebug_connect_ioctl(struct drm_device *dev,
 	ret = xe_eudebug_connect(xe, param);
 
 	return ret;
+}
+
+#undef XE_REG_MCR
+#define XE_REG_MCR(...)     XE_REG(__VA_ARGS__, .mcr = 1)
+
+void xe_eudebug_init_hw_engine(struct xe_hw_engine *hwe)
+{
+	struct xe_gt *gt = hwe->gt;
+	struct xe_device *xe = gt_to_xe(gt);
+
+	if (!xe->eudebug.available)
+		return;
+
+	if (!xe_rtp_match_first_render_or_compute(gt, hwe))
+		return;
+
+	if (XE_WA(gt, 18022722726)) {
+		struct xe_reg_sr_entry sr_entry = {
+			.reg = ROW_CHICKEN,
+			.clr_bits = STALL_DOP_GATING_DISABLE,
+			.set_bits = STALL_DOP_GATING_DISABLE,
+			.read_mask = STALL_DOP_GATING_DISABLE,
+		};
+
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+	}
+
+	if (XE_WA(gt, 14015474168)) {
+		struct xe_reg_sr_entry sr_entry = {
+			.reg = ROW_CHICKEN2,
+			.clr_bits = XEHPC_DISABLE_BTB,
+			.set_bits = XEHPC_DISABLE_BTB,
+			.read_mask = XEHPC_DISABLE_BTB,
+		};
+
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+	}
+
+	if (xe->info.graphics_verx100 >= 1200) {
+		u32 mask = TD_CTL_BREAKPOINT_ENABLE |
+			   TD_CTL_FORCE_THREAD_BREAKPOINT_ENABLE |
+			   TD_CTL_FEH_AND_FEE_ENABLE;
+		struct xe_reg_sr_entry sr_entry = {
+			.reg = TD_CTL,
+			.clr_bits = mask,
+			.set_bits = mask,
+			.read_mask = mask,
+		};
+
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+	}
+
+	if (xe->info.graphics_verx100 >= 1250) {
+		struct xe_reg_sr_entry sr_entry = {
+			.reg = TD_CTL,
+			.clr_bits = TD_CTL_GLOBAL_DEBUG_ENABLE,
+			.set_bits = TD_CTL_GLOBAL_DEBUG_ENABLE,
+			.read_mask = TD_CTL_GLOBAL_DEBUG_ENABLE,
+		};
+
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+	}
 }
 
 void xe_eudebug_init(struct xe_device *xe)
