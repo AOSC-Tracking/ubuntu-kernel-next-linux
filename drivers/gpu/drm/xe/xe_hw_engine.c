@@ -559,7 +559,7 @@ static int hw_engine_init(struct xe_gt *gt, struct xe_hw_engine *hwe,
 		goto err_name;
 	}
 
-	hwe->kernel_lrc = xe_lrc_create(hwe, NULL, SZ_16K);
+	hwe->kernel_lrc = xe_lrc_create(hwe, NULL, SZ_16K, 0);
 	if (IS_ERR(hwe->kernel_lrc)) {
 		err = PTR_ERR(hwe->kernel_lrc);
 		goto err_hwsp;
