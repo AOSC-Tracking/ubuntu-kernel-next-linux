@@ -516,6 +516,9 @@ struct xe_device {
 
 		/** @ordered_wq: used to discovery */
 		struct workqueue_struct *ordered_wq;
+
+		/** @attention_scan: attention scan worker */
+		struct delayed_work attention_scan;
 	} eudebug;
 
 	/* private: */
