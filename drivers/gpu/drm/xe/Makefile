@@ -49,6 +49,7 @@ xe-y += xe_bb.o \
 	xe_gt_debugfs.o \
 	xe_gt_freq.o \
 	xe_gt_idle.o \
+	xe_gt_debug.o \
 	xe_gt_mcr.o \
 	xe_gt_pagefault.o \
 	xe_gt_sysfs.o \
