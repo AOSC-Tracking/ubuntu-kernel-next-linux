@@ -616,6 +616,14 @@ struct xe_file {
 
 	/** @id: id into xe_device.files.xa */
 	u32 id;
+
+	/** @debug_metadata: array of debug metadata for file */
+	struct {
+		/** @xa: xarray to store debug metadata */
+		struct xarray xa;
+		/** @lock: protects debug metadata xarray */
+		struct mutex lock;
+	} debug_metadata;
 };
 
 #endif

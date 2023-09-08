@@ -24,6 +24,7 @@
 #include "xe_bo.h"
 #include "xe_debugfs.h"
 #include "xe_devcoredump.h"
+#include "xe_debug_metadata.h"
 #include "xe_dma_buf.h"
 #include "xe_drm_client.h"
 #include "xe_drv.h"
@@ -99,6 +100,9 @@ static int xe_file_open(struct drm_device *dev, struct drm_file *file)
 	xe->clients.count++;
 	spin_unlock(&xe->clients.lock);
 
+	mutex_init(&xef->debug_metadata.lock);
+	xa_init_flags(&xef->debug_metadata.xa, XA_FLAGS_ALLOC1);
+
 	file->driver_priv = xef;
 	kref_init(&xef->refcount);
 
@@ -116,6 +120,9 @@ static void xe_file_destroy(struct kref *ref)
 	mutex_destroy(&xef->exec_queue.lock);
 	xa_destroy(&xef->vm.xa);
 	mutex_destroy(&xef->vm.lock);
+
+	xa_destroy(&xef->debug_metadata.xa);
+	mutex_destroy(&xef->debug_metadata.lock);
 
 	spin_lock(&xe->clients.lock);
 	xe->clients.count--;
@@ -157,6 +164,7 @@ static void xe_file_close(struct drm_device *dev, struct drm_file *file)
 	struct xe_file *xef = file->driver_priv;
 	struct xe_vm *vm;
 	struct xe_exec_queue *q;
+	struct xe_debug_metadata *mdata;
 	unsigned long idx;
 
 	xe_pm_runtime_get(xe);
@@ -182,6 +190,11 @@ static void xe_file_close(struct drm_device *dev, struct drm_file *file)
 		xe_vm_close_and_put(vm);
 	mutex_unlock(&xef->vm.lock);
 
+	mutex_lock(&xef->debug_metadata.lock);
+	xa_for_each(&xef->debug_metadata.xa, idx, mdata)
+		xe_debug_metadata_put(mdata);
+	mutex_unlock(&xef->debug_metadata.lock);
+
 	xe_file_put(xef);
 
 	xe_pm_runtime_put(xe);
@@ -206,6 +219,10 @@ static const struct drm_ioctl_desc xe_ioctls[] = {
 			  DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(XE_OBSERVATION, xe_observation_ioctl, DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(XE_EUDEBUG_CONNECT, xe_eudebug_connect_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_CREATE, xe_debug_metadata_create_ioctl,
+			  DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_DESTROY, xe_debug_metadata_destroy_ioctl,
+			  DRM_RENDER_ALLOW),
 };
 
 static long xe_drm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
