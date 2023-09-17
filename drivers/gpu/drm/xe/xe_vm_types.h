@@ -121,6 +121,9 @@ struct xe_vma {
 	 * Needs to be signalled before UNMAP can be processed.
 	 */
 	struct xe_user_fence *ufence;
+
+	/** @debug_metadata: List of vma debug metadata */
+	struct list_head debug_metadata;
 };
 
 /**
@@ -309,6 +312,8 @@ struct xe_vma_op_map {
 	bool dumpable;
 	/** @pat_index: The pat index to use for this operation. */
 	u16 pat_index;
+	/** @debug_metadata: List of attached debug metadata */
+	struct list_head debug_metadata;
 };
 
 /** struct xe_vma_op_remap - VMA remap operation */
@@ -384,6 +389,16 @@ struct xe_vma_ops {
 	/** @inject_error: inject error to test error handling */
 	bool inject_error;
 #endif
+};
+
+struct xe_vma_debug_metadata {
+	/** @debug.metadata: id of attached xe_debug_metadata */
+	u32 metadata_id;
+	/** @debug.cookie: user defined cookie */
+	u64 cookie;
+
+	/** @link: list of metadata attached to vma */
+	struct list_head link;
 };
 
 #endif
