@@ -24,6 +24,19 @@ void xe_debug_metadata_put(struct xe_debug_metadata *mdata)
 	kref_put(&mdata->refcount, xe_debug_metadata_release);
 }
 
+struct xe_debug_metadata *xe_debug_metadata_get(struct xe_file *xef, u32 id)
+{
+	struct xe_debug_metadata *mdata;
+
+	mutex_lock(&xef->debug_metadata.lock);
+	mdata = xa_load(&xef->debug_metadata.xa, id);
+	if (mdata)
+		kref_get(&mdata->refcount);
+	mutex_unlock(&xef->debug_metadata.lock);
+
+	return mdata;
+}
+
 int xe_debug_metadata_create_ioctl(struct drm_device *dev,
 				   void *data,
 				   struct drm_file *file)
