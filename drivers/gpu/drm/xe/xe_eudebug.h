@@ -16,6 +16,8 @@ struct xe_vma;
 struct xe_exec_queue;
 struct xe_hw_engine;
 struct xe_user_fence;
+struct xe_debug_metadata;
+struct drm_gpuva_ops;
 
 #if IS_ENABLED(CONFIG_DRM_XE_EUDEBUG)
 
@@ -38,13 +40,17 @@ void xe_eudebug_exec_queue_create(struct xe_file *xef, struct xe_exec_queue *q);
 void xe_eudebug_exec_queue_destroy(struct xe_file *xef, struct xe_exec_queue *q);
 
 void xe_eudebug_vm_bind_start(struct xe_vm *vm);
-void xe_eudebug_vm_bind_op_add(struct xe_vm *vm, u32 op, u64 addr, u64 range);
+void xe_eudebug_vm_bind_op_add(struct xe_vm *vm, u32 op, u64 addr, u64 range,
+			       struct drm_gpuva_ops *ops);
 void xe_eudebug_vm_bind_end(struct xe_vm *vm, bool has_ufence, int err);
 
 int xe_eudebug_vm_bind_ufence(struct xe_user_fence *ufence);
 
 struct xe_eudebug *xe_eudebug_get(struct xe_file *xef);
 void xe_eudebug_put(struct xe_eudebug *d);
+
+void xe_eudebug_debug_metadata_create(struct xe_file *xef, struct xe_debug_metadata *m);
+void xe_eudebug_debug_metadata_destroy(struct xe_file *xef, struct xe_debug_metadata *m);
 
 #else
 
@@ -67,13 +73,16 @@ static inline void xe_eudebug_exec_queue_create(struct xe_file *xef, struct xe_e
 static inline void xe_eudebug_exec_queue_destroy(struct xe_file *xef, struct xe_exec_queue *q) { }
 
 static inline void xe_eudebug_vm_bind_start(struct xe_vm *vm) { }
-static inline void xe_eudebug_vm_bind_op_add(struct xe_vm *vm, u32 op, u64 addr, u64 range) { }
+static inline void xe_eudebug_vm_bind_op_add(struct xe_vm *vm, u32 op, u64 addr, u64 range, struct drm_gpuva_ops *ops) { }
 static inline void xe_eudebug_vm_bind_end(struct xe_vm *vm, bool has_ufence, int err) { }
 
 static inline int xe_eudebug_vm_bind_ufence(struct xe_user_fence *ufence) { return 0; }
 
 static inline struct xe_eudebug *xe_eudebug_get(struct xe_file *xef) { return NULL; }
 static inline void xe_eudebug_put(struct xe_eudebug *d) { }
+
+static inline void xe_eudebug_debug_metadata_create(struct xe_file *xef, struct xe_debug_metadata *m) { }
+static inline void xe_eudebug_debug_metadata_destroy(struct xe_file *xef, struct xe_debug_metadata *m) { }
 
 #endif /* CONFIG_DRM_XE_EUDEBUG */
 
