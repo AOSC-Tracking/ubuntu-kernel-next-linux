@@ -517,6 +517,11 @@ struct xe_device {
 		/** @ordered_wq: used to discovery */
 		struct workqueue_struct *ordered_wq;
 
+		/** @enable_lock: protects the enable toggle */
+		struct mutex enable_lock;
+		/** @enable: is the debugging functionality enabled */
+		bool enable;
+
 		/** @attention_scan: attention scan worker */
 		struct delayed_work attention_scan;
 	} eudebug;
