@@ -2007,9 +2007,6 @@ xe_eudebug_connect(struct xe_device *xe,
 
 	param->version = DRM_XE_EUDEBUG_VERSION;
 
-	if (!xe->eudebug.available)
-		return -EOPNOTSUPP;
-
 	d = kzalloc(sizeof(*d), GFP_KERNEL);
 	if (!d)
 		return -ENOMEM;
@@ -2071,7 +2068,16 @@ int xe_eudebug_connect_ioctl(struct drm_device *dev,
 	struct drm_xe_eudebug_connect * const param = data;
 	int ret = 0;
 
+	mutex_lock(&xe->eudebug.enable_lock);
+
+	if (!xe->eudebug.enable) {
+		mutex_unlock(&xe->eudebug.enable_lock);
+		return -ENODEV;
+	}
+
 	ret = xe_eudebug_connect(xe, param);
+
+	mutex_unlock(&xe->eudebug.enable_lock);
 
 	return ret;
 }
@@ -2079,7 +2085,7 @@ int xe_eudebug_connect_ioctl(struct drm_device *dev,
 #undef XE_REG_MCR
 #define XE_REG_MCR(...)     XE_REG(__VA_ARGS__, .mcr = 1)
 
-void xe_eudebug_init_hw_engine(struct xe_hw_engine *hwe)
+static void xe_eudebug_reinit_hw_engine(struct xe_hw_engine *hwe, bool enable)
 {
 	struct xe_gt *gt = hwe->gt;
 	struct xe_device *xe = gt_to_xe(gt);
@@ -2094,22 +2100,22 @@ void xe_eudebug_init_hw_engine(struct xe_hw_engine *hwe)
 		struct xe_reg_sr_entry sr_entry = {
 			.reg = ROW_CHICKEN,
 			.clr_bits = STALL_DOP_GATING_DISABLE,
-			.set_bits = STALL_DOP_GATING_DISABLE,
+			.set_bits = enable ? STALL_DOP_GATING_DISABLE : 0,
 			.read_mask = STALL_DOP_GATING_DISABLE,
 		};
 
-		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt, true);
 	}
 
 	if (XE_WA(gt, 14015474168)) {
 		struct xe_reg_sr_entry sr_entry = {
 			.reg = ROW_CHICKEN2,
 			.clr_bits = XEHPC_DISABLE_BTB,
-			.set_bits = XEHPC_DISABLE_BTB,
+			.set_bits = enable ? XEHPC_DISABLE_BTB : 0,
 			.read_mask = XEHPC_DISABLE_BTB,
 		};
 
-		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt, true);
 	}
 
 	if (xe->info.graphics_verx100 >= 1200) {
@@ -2119,40 +2125,124 @@ void xe_eudebug_init_hw_engine(struct xe_hw_engine *hwe)
 		struct xe_reg_sr_entry sr_entry = {
 			.reg = TD_CTL,
 			.clr_bits = mask,
-			.set_bits = mask,
+			.set_bits = enable ? mask : 0,
 			.read_mask = mask,
 		};
 
-		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt, true);
 	}
 
 	if (xe->info.graphics_verx100 >= 1250) {
 		struct xe_reg_sr_entry sr_entry = {
 			.reg = TD_CTL,
 			.clr_bits = TD_CTL_GLOBAL_DEBUG_ENABLE,
-			.set_bits = TD_CTL_GLOBAL_DEBUG_ENABLE,
+			.set_bits = enable ? TD_CTL_GLOBAL_DEBUG_ENABLE : 0,
 			.read_mask = TD_CTL_GLOBAL_DEBUG_ENABLE,
 		};
 
-		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt);
+		xe_reg_sr_add(&hwe->reg_sr, &sr_entry, gt, true);
 	}
+}
+
+static int xe_eudebug_enable(struct xe_device *xe, bool enable)
+{
+	struct xe_gt *gt;
+	int i;
+	u8 id;
+
+	if (!xe->eudebug.available)
+		return -EOPNOTSUPP;
+
+	/* XXX: TODO hold list lock? */
+	mutex_lock(&xe->eudebug.enable_lock);
+
+	if (!enable && !list_empty(&xe->eudebug.list)) {
+		mutex_unlock(&xe->eudebug.enable_lock);
+		return -EBUSY;
+	}
+
+	if (enable == xe->eudebug.enable) {
+		mutex_unlock(&xe->eudebug.enable_lock);
+		return 0;
+	}
+
+	for_each_gt(gt, xe, id) {
+		for (i = 0; i < ARRAY_SIZE(gt->hw_engines); i++) {
+			if (!(gt->info.engine_mask & BIT(i)))
+				continue;
+
+			xe_eudebug_reinit_hw_engine(&gt->hw_engines[i], enable);
+		}
+
+		xe_gt_reset_async(gt);
+		flush_work(&gt->reset.worker);
+	}
+
+	if (enable)
+		attention_scan_flush(xe);
+	else
+		attention_scan_cancel(xe);
+
+	xe->eudebug.enable = enable;
+	mutex_unlock(&xe->eudebug.enable_lock);
+
+	return 0;
+}
+
+static ssize_t enable_eudebug_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct xe_device *xe = pdev_to_xe_device(to_pci_dev(dev));
+
+	return sysfs_emit(buf, "%u\n", xe->eudebug.enable);
+}
+
+static ssize_t enable_eudebug_store(struct device *dev, struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct xe_device *xe = pdev_to_xe_device(to_pci_dev(dev));
+	bool enable;
+	int ret;
+
+	ret = kstrtobool(buf, &enable);
+	if (ret)
+		return ret;
+
+	ret = xe_eudebug_enable(xe, enable);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(enable_eudebug);
+
+static void xe_eudebug_sysfs_fini(void *arg)
+{
+	struct xe_device *xe = arg;
+
+	sysfs_remove_file(&xe->drm.dev->kobj, &dev_attr_enable_eudebug.attr);
 }
 
 void xe_eudebug_init(struct xe_device *xe)
 {
+	struct device *dev = xe->drm.dev;
+	int ret;
+
 	spin_lock_init(&xe->eudebug.lock);
 	INIT_LIST_HEAD(&xe->eudebug.list);
 	INIT_DELAYED_WORK(&xe->eudebug.attention_scan, attention_scan_fn);
 
-	xe->eudebug.available = true;
-}
+	drmm_mutex_init(&xe->drm, &xe->eudebug.enable_lock);
+	xe->eudebug.enable = false;
 
-void xe_eudebug_init_late(struct xe_device *xe)
-{
-	if (!xe->eudebug.available)
-		return;
 
-	attention_scan_flush(xe);
+	ret = sysfs_create_file(&xe->drm.dev->kobj, &dev_attr_enable_eudebug.attr);
+	if (ret)
+		drm_warn(&xe->drm, "eudebug sysfs init failed: %d, debugger unavailable\n", ret);
+	else
+		devm_add_action_or_reset(dev, xe_eudebug_sysfs_fini, xe);
+
+	xe->eudebug.available = ret == 0;
 }
 
 void xe_eudebug_fini(struct xe_device *xe)
