@@ -1787,6 +1787,7 @@ struct drm_xe_debug_metadata_destroy {
 };
 
 #include "xe_drm_eudebug.h"
+#include "xe_drm_prelim.h"
 
 #if defined(__cplusplus)
 }
