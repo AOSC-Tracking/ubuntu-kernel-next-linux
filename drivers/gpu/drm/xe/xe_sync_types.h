@@ -7,12 +7,28 @@
 #define _XE_SYNC_TYPES_H_
 
 #include <linux/types.h>
+#include <linux/spinlock.h>
+#include <linux/kref.h>
+#include <linux/dma-fence-array.h>
 
-struct drm_syncobj;
-struct dma_fence;
-struct dma_fence_chain;
-struct drm_xe_sync;
-struct user_fence;
+struct xe_eudebug;
+
+struct xe_user_fence {
+	struct xe_device *xe;
+	struct kref refcount;
+	struct dma_fence_cb cb;
+	struct work_struct worker;
+	struct mm_struct *mm;
+	u64 __user *addr;
+	u64 value;
+	int signalled;
+	struct {
+		struct xe_eudebug *debugger;
+		u64 bind_ref_seqno;
+		u64 signalled_seqno;
+		struct work_struct worker;
+	} eudebug;
+};
 
 struct xe_sync_entry {
 	struct drm_syncobj *syncobj;

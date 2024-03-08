@@ -18,17 +18,7 @@
 #include "xe_exec_queue.h"
 #include "xe_macros.h"
 #include "xe_sched_job_types.h"
-
-struct xe_user_fence {
-	struct xe_device *xe;
-	struct kref refcount;
-	struct dma_fence_cb cb;
-	struct work_struct worker;
-	struct mm_struct *mm;
-	u64 __user *addr;
-	u64 value;
-	int signalled;
-};
+#include "xe_eudebug.h"
 
 static void user_fence_destroy(struct kref *kref)
 {
@@ -36,6 +26,10 @@ static void user_fence_destroy(struct kref *kref)
 						 refcount);
 
 	mmdrop(ufence->mm);
+
+	if (ufence->eudebug.debugger)
+		xe_eudebug_put(ufence->eudebug.debugger);
+
 	kfree(ufence);
 }
 
@@ -49,16 +43,20 @@ static void user_fence_put(struct xe_user_fence *ufence)
 	kref_put(&ufence->refcount, user_fence_destroy);
 }
 
-static struct xe_user_fence *user_fence_create(struct xe_device *xe, u64 addr,
+static struct xe_user_fence *user_fence_create(struct xe_device *xe,
+					       struct xe_file *xef,
+					       struct xe_vm *vm,
+					       u64 addr,
 					       u64 value)
 {
 	struct xe_user_fence *ufence;
 	u64 __user *ptr = u64_to_user_ptr(addr);
+	u64 bind_ref;
 
 	if (!access_ok(ptr, sizeof(*ptr)))
 		return ERR_PTR(-EFAULT);
 
-	ufence = kmalloc(sizeof(*ufence), GFP_KERNEL);
+	ufence = kzalloc(sizeof(*ufence), GFP_KERNEL);
 	if (!ufence)
 		return ERR_PTR(-ENOMEM);
 
@@ -69,12 +67,23 @@ static struct xe_user_fence *user_fence_create(struct xe_device *xe, u64 addr,
 	ufence->mm = current->mm;
 	mmgrab(ufence->mm);
 
+	spin_lock(&vm->eudebug_bind.lock);
+	bind_ref = vm->eudebug_bind.ref;
+	spin_unlock(&vm->eudebug_bind.lock);
+
+	if (bind_ref) {
+		ufence->eudebug.debugger = xe_eudebug_get(xef);
+
+		if (ufence->eudebug.debugger)
+			ufence->eudebug.bind_ref_seqno = bind_ref;
+	}
+
 	return ufence;
 }
 
-static void user_fence_worker(struct work_struct *w)
+void xe_sync_ufence_signal(struct xe_user_fence *ufence)
 {
-	struct xe_user_fence *ufence = container_of(w, struct xe_user_fence, worker);
+	XE_WARN_ON(!ufence->signalled);
 
 	if (mmget_not_zero(ufence->mm)) {
 		kthread_use_mm(ufence->mm);
@@ -85,7 +94,20 @@ static void user_fence_worker(struct work_struct *w)
 	}
 
 	wake_up_all(&ufence->xe->ufence_wq);
+}
+
+static void user_fence_worker(struct work_struct *w)
+{
+	struct xe_user_fence *ufence = container_of(w, struct xe_user_fence, worker);
+	int ret;
+
 	WRITE_ONCE(ufence->signalled, 1);
+
+	/* Lets see if debugger wants to track this */
+	ret = xe_eudebug_vm_bind_ufence(ufence);
+	if (ret)
+		xe_sync_ufence_signal(ufence);
+
 	user_fence_put(ufence);
 }
 
@@ -104,6 +126,7 @@ static void user_fence_cb(struct dma_fence *fence, struct dma_fence_cb *cb)
 }
 
 int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
+			struct xe_vm *vm,
 			struct xe_sync_entry *sync,
 			struct drm_xe_sync __user *sync_user,
 			unsigned int flags)
@@ -185,7 +208,8 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 		if (exec) {
 			sync->addr = sync_in.addr;
 		} else {
-			sync->ufence = user_fence_create(xe, sync_in.addr,
+			sync->ufence = user_fence_create(xe, xef, vm,
+							 sync_in.addr,
 							 sync_in.timeline_value);
 			if (XE_IOCTL_DBG(xe, IS_ERR(sync->ufence)))
 				return PTR_ERR(sync->ufence);

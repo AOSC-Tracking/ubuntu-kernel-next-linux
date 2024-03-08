@@ -86,6 +86,7 @@ struct xe_eudebug_eu_control_ops {
 	int (*stopped)(struct xe_eudebug *e, struct xe_exec_queue *q,
 		       struct xe_lrc *lrc, u8 *bitmap, unsigned int bitmap_size);
 };
+
 /**
  * struct xe_eudebug - Top level struct for eudebug: the connection
  */
@@ -148,6 +149,14 @@ struct xe_eudebug {
 		/** @event_seqno: seqno counter to stamp events for fifo */
 		atomic_long_t seqno;
 	} events;
+
+	/* user fences tracked by this debugger */
+	struct {
+		/** @lock: guards access to tree */
+		spinlock_t lock;
+
+		struct rb_root tree;
+	} acks;
 
 	/** @ops operations for eu_control */
 	struct xe_eudebug_eu_control_ops *ops;
@@ -284,6 +293,11 @@ struct xe_eudebug_event_vm_bind_op {
 
 	u64 addr; /* Zero for unmap all ? */
 	u64 range; /* Zero for unmap all ? */
+};
+
+struct xe_eudebug_event_vm_bind_ufence {
+	struct xe_eudebug_event base;
+	u64 vm_bind_ref_seqno;
 };
 
 #endif
