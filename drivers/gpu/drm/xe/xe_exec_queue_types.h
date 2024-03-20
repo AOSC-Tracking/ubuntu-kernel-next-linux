@@ -92,7 +92,7 @@ struct xe_exec_queue {
 
 	/**
 	 * @eudebug_flags: immutable eudebug flags for this exec queue.
-	 * Set up with DRM_XE_EXEC_QUEUE_SET_PROPERTY_EUDEBUG.
+	 * Set up with PRELIM_DRM_XE_EXEC_QUEUE_SET_PROPERTY_EUDEBUG.
 	 */
 #define EXEC_QUEUE_EUDEBUG_FLAG_ENABLE		BIT(0)
 	unsigned long eudebug_flags;
