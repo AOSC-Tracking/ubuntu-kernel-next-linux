@@ -2,32 +2,32 @@
 /*
  * Copyright © 2023 Intel Corporation
  */
-#include "xe_debug_metadata.h"
+#include "prelim/xe_debug_metadata.h"
 
 #include <drm/drm_device.h>
 #include <drm/drm_file.h>
 #include <drm/xe_drm.h>
 
 #include "xe_device.h"
-#include "xe_eudebug.h"
+#include "prelim/xe_eudebug.h"
 #include "xe_macros.h"
 
 static void xe_debug_metadata_release(struct kref *ref)
 {
-	struct xe_debug_metadata *mdata = container_of(ref, struct xe_debug_metadata, refcount);
+	struct prelim_xe_debug_metadata *mdata = container_of(ref, struct prelim_xe_debug_metadata, refcount);
 
 	kvfree(mdata->ptr);
 	kfree(mdata);
 }
 
-void xe_debug_metadata_put(struct xe_debug_metadata *mdata)
+void prelim_xe_debug_metadata_put(struct prelim_xe_debug_metadata *mdata)
 {
 	kref_put(&mdata->refcount, xe_debug_metadata_release);
 }
 
-struct xe_debug_metadata *xe_debug_metadata_get(struct xe_file *xef, u32 id)
+struct prelim_xe_debug_metadata *prelim_xe_debug_metadata_get(struct xe_file *xef, u32 id)
 {
-	struct xe_debug_metadata *mdata;
+	struct prelim_xe_debug_metadata *mdata;
 
 	mutex_lock(&xef->debug_metadata.lock);
 	mdata = xa_load(&xef->debug_metadata.xa, id);
@@ -38,21 +38,21 @@ struct xe_debug_metadata *xe_debug_metadata_get(struct xe_file *xef, u32 id)
 	return mdata;
 }
 
-int xe_debug_metadata_create_ioctl(struct drm_device *dev,
+int prelim_xe_debug_metadata_create_ioctl(struct drm_device *dev,
 				   void *data,
 				   struct drm_file *file)
 {
 	struct xe_device *xe = to_xe_device(dev);
 	struct xe_file *xef = to_xe_file(file);
-	struct drm_xe_debug_metadata_create *args = data;
-	struct xe_debug_metadata *mdata;
+	struct prelim_drm_xe_debug_metadata_create *args = data;
+	struct prelim_xe_debug_metadata *mdata;
 	int err;
 	u32 id;
 
 	if (XE_IOCTL_DBG(xe, args->extensions))
 		return -EINVAL;
 
-	if (XE_IOCTL_DBG(xe, args->type >= WORK_IN_PROGRESS_DRM_XE_DEBUG_METADATA_NUM))
+	if (XE_IOCTL_DBG(xe, args->type >= PRELIM_WORK_IN_PROGRESS_DRM_XE_DEBUG_METADATA_NUM))
 		return -EINVAL;
 
 	if (XE_IOCTL_DBG(xe, !args->user_addr || !args->len))
@@ -91,23 +91,23 @@ int xe_debug_metadata_create_ioctl(struct drm_device *dev,
 	if (err)
 		goto put_mdata;
 
-	xe_eudebug_debug_metadata_create(xef, mdata);
+	prelim_xe_eudebug_debug_metadata_create(xef, mdata);
 
 	return 0;
 
 put_mdata:
-	xe_debug_metadata_put(mdata);
+	prelim_xe_debug_metadata_put(mdata);
 	return err;
 }
 
-int xe_debug_metadata_destroy_ioctl(struct drm_device *dev,
+int prelim_xe_debug_metadata_destroy_ioctl(struct drm_device *dev,
 				    void *data,
 				    struct drm_file *file)
 {
 	struct xe_device *xe = to_xe_device(dev);
 	struct xe_file *xef = to_xe_file(file);
-	struct drm_xe_debug_metadata_destroy * const args = data;
-	struct xe_debug_metadata *mdata;
+	struct prelim_drm_xe_debug_metadata_destroy * const args = data;
+	struct prelim_xe_debug_metadata *mdata;
 
 	if (XE_IOCTL_DBG(xe, args->extensions))
 		return -EINVAL;
@@ -118,8 +118,8 @@ int xe_debug_metadata_destroy_ioctl(struct drm_device *dev,
 	if (XE_IOCTL_DBG(xe, !mdata))
 		return -ENOENT;
 
-	xe_eudebug_debug_metadata_destroy(xef, mdata);
+	prelim_xe_eudebug_debug_metadata_destroy(xef, mdata);
 
-	xe_debug_metadata_put(mdata);
+	prelim_xe_debug_metadata_put(mdata);
 	return 0;
 }

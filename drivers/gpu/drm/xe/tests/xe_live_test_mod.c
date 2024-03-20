@@ -4,7 +4,7 @@
  */
 #include <linux/module.h>
 
-#if IS_ENABLED(CONFIG_DRM_XE_EUDEBUG)
+#if IS_ENABLED(CONFIG_PRELIM_DRM_XE_EUDEBUG)
 extern struct kunit_suite xe_eudebug_test_suite;
 kunit_test_suite(xe_eudebug_test_suite);
 #endif

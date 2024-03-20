@@ -24,7 +24,7 @@
 #include "xe_bo.h"
 #include "xe_debugfs.h"
 #include "xe_devcoredump.h"
-#include "xe_debug_metadata.h"
+#include "prelim/xe_debug_metadata.h"
 #include "xe_dma_buf.h"
 #include "xe_drm_client.h"
 #include "xe_drv.h"
@@ -56,7 +56,7 @@
 #include "xe_vram.h"
 #include "xe_wait_user_fence.h"
 #include "xe_wa.h"
-#include "xe_eudebug.h"
+#include "prelim/xe_eudebug.h"
 
 #include <generated/xe_wa_oob.h>
 
@@ -106,7 +106,7 @@ static int xe_file_open(struct drm_device *dev, struct drm_file *file)
 	file->driver_priv = xef;
 	kref_init(&xef->refcount);
 
-	xe_eudebug_file_open(xef);
+	prelim_xe_eudebug_file_open(xef);
 
 	return 0;
 }
@@ -164,12 +164,12 @@ static void xe_file_close(struct drm_device *dev, struct drm_file *file)
 	struct xe_file *xef = file->driver_priv;
 	struct xe_vm *vm;
 	struct xe_exec_queue *q;
-	struct xe_debug_metadata *mdata;
+	struct prelim_xe_debug_metadata *mdata;
 	unsigned long idx;
 
 	xe_pm_runtime_get(xe);
 
-	xe_eudebug_file_close(xef);
+	prelim_xe_eudebug_file_close(xef);
 
 	mutex_lock(&xef->xe->files.lock);
 	xa_erase(&xef->xe->files.xa, xef->id);
@@ -192,7 +192,7 @@ static void xe_file_close(struct drm_device *dev, struct drm_file *file)
 
 	mutex_lock(&xef->debug_metadata.lock);
 	xa_for_each(&xef->debug_metadata.xa, idx, mdata)
-		xe_debug_metadata_put(mdata);
+		prelim_xe_debug_metadata_put(mdata);
 	mutex_unlock(&xef->debug_metadata.lock);
 
 	xe_file_put(xef);
@@ -226,10 +226,10 @@ static const struct drm_ioctl_desc xe_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(XE_WAIT_USER_FENCE, xe_wait_user_fence_ioctl,
 			  DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(XE_OBSERVATION, xe_observation_ioctl, DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(XE_EUDEBUG_CONNECT, xe_eudebug_connect_ioctl, DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_CREATE, xe_debug_metadata_create_ioctl,
+	PRELIM_DRM_IOCTL_DEF_DRV(XE_EUDEBUG_CONNECT, prelim_xe_eudebug_connect_ioctl, DRM_RENDER_ALLOW),
+	PRELIM_DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_CREATE, prelim_xe_debug_metadata_create_ioctl,
 			  DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_DESTROY, xe_debug_metadata_destroy_ioctl,
+	PRELIM_DRM_IOCTL_DEF_DRV(XE_DEBUG_METADATA_DESTROY, prelim_xe_debug_metadata_destroy_ioctl,
 			  DRM_RENDER_ALLOW),
 };
 
@@ -320,7 +320,7 @@ static void xe_device_destroy(struct drm_device *dev, void *dummy)
 {
 	struct xe_device *xe = to_xe_device(dev);
 
-	xe_eudebug_fini(xe);
+	prelim_xe_eudebug_fini(xe);
 
 	if (xe->preempt_fence_wq)
 		destroy_workqueue(xe->preempt_fence_wq);
@@ -399,7 +399,7 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 	INIT_LIST_HEAD(&xe->pinned.external_vram);
 	INIT_LIST_HEAD(&xe->pinned.evicted);
 
-	xe_eudebug_init(xe);
+	prelim_xe_eudebug_init(xe);
 
 	xe->preempt_fence_wq = alloc_ordered_workqueue("xe-preempt-fence-wq", 0);
 

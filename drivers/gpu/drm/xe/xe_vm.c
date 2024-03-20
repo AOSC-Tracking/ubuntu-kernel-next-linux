@@ -24,7 +24,7 @@
 #include "regs/xe_gtt_defs.h"
 #include "xe_assert.h"
 #include "xe_bo.h"
-#include "xe_debug_metadata.h"
+#include "prelim/xe_debug_metadata.h"
 #include "xe_device.h"
 #include "xe_drm_client.h"
 #include "xe_exec_queue.h"
@@ -40,7 +40,7 @@
 #include "xe_trace_bo.h"
 #include "xe_wa.h"
 #include "xe_hmm.h"
-#include "xe_eudebug.h"
+#include "prelim/xe_eudebug.h"
 
 static struct drm_gem_object *xe_vm_obj(struct xe_vm *vm)
 {
@@ -1699,7 +1699,7 @@ static void vm_destroy_work_func(struct work_struct *w)
 	struct xe_tile *tile;
 	u8 id;
 
-	xe_eudebug_vm_bind_end(vm, 0, -ENOENT);
+	prelim_xe_eudebug_vm_bind_end(vm, 0, -ENOENT);
 
 	/* xe_vm_close_and_put was not called? */
 	xe_assert(xe, !vm->size);
@@ -1864,7 +1864,7 @@ int xe_vm_create_ioctl(struct drm_device *dev, void *data,
 	args->reserved[0] = xe_bo_main_addr(vm->pt_root[0]->bo, XE_PAGE_SIZE);
 #endif
 
-	xe_eudebug_vm_create(xef, vm);
+	prelim_xe_eudebug_vm_create(xef, vm);
 
 	return 0;
 
@@ -1902,7 +1902,7 @@ int xe_vm_destroy_ioctl(struct drm_device *dev, void *data,
 	mutex_unlock(&xef->vm.lock);
 
 	if (!err) {
-		xe_eudebug_vm_destroy(xef, vm);
+		prelim_xe_eudebug_vm_destroy(xef, vm);
 		xe_vm_close_and_put(vm);
 	}
 
@@ -2639,8 +2639,8 @@ static int vm_bind_op_ext_attach_debug(struct xe_device *xe,
 				       u32 operation, u64 extension)
 {
 	u64 __user *address = u64_to_user_ptr(extension);
-	struct drm_xe_vm_bind_op_ext_attach_debug ext;
-	struct xe_debug_metadata *mdata;
+	struct prelim_drm_xe_vm_bind_op_ext_attach_debug ext;
+	struct prelim_xe_debug_metadata *mdata;
 	struct drm_gpuva_op *__op;
 	int err;
 
@@ -2656,12 +2656,12 @@ static int vm_bind_op_ext_attach_debug(struct xe_device *xe,
 	if (XE_IOCTL_DBG(xe, ext.flags))
 		return -EINVAL;
 
-	mdata = xe_debug_metadata_get(xef, (u32)ext.metadata_id);
+	mdata = prelim_xe_debug_metadata_get(xef, (u32)ext.metadata_id);
 	if (XE_IOCTL_DBG(xe, !mdata))
 		return -ENOENT;
 
 	/* care about metadata existence only on the time of attach */
-	xe_debug_metadata_put(mdata);
+	prelim_xe_debug_metadata_put(mdata);
 
 	if (!ops)
 		return 0;
@@ -2682,7 +2682,7 @@ static int vm_bind_op_ext_attach_debug(struct xe_device *xe,
 }
 
 static const xe_vm_bind_op_user_extension_fn vm_bind_op_extension_funcs[] = {
-	[XE_VM_BIND_OP_EXTENSIONS_ATTACH_DEBUG] = vm_bind_op_ext_attach_debug,
+	[PRELIM_XE_VM_BIND_OP_EXTENSIONS_ATTACH_DEBUG] = vm_bind_op_ext_attach_debug,
 };
 
 #define MAX_USER_EXTENSIONS	16
@@ -2865,7 +2865,7 @@ static void vm_bind_ioctl_ops_fini(struct xe_vm *vm, struct xe_vma_ops *vops,
 				       fence);
 	}
 
-	xe_eudebug_vm_bind_end(vm, ufence, 0);
+	prelim_xe_eudebug_vm_bind_end(vm, ufence, 0);
 
 	if (ufence)
 		xe_sync_ufence_put(ufence);
@@ -3236,7 +3236,7 @@ int xe_vm_bind_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 		}
 	}
 
-	xe_eudebug_vm_bind_start(vm);
+	prelim_xe_eudebug_vm_bind_start(vm);
 
 	syncs_user = u64_to_user_ptr(args->syncs);
 	for (num_syncs = 0; num_syncs < args->num_syncs; num_syncs++) {
@@ -3293,7 +3293,7 @@ int xe_vm_bind_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 		if (err)
 			goto unwind_ops;
 
-		xe_eudebug_vm_bind_op_add(vm, op, addr, range, ops[i]);
+		prelim_xe_eudebug_vm_bind_op_add(vm, op, addr, range, ops[i]);
 
 #ifdef TEST_VM_OPS_ERROR
 		if (flags & FORCE_OP_ERROR) {
@@ -3319,7 +3319,7 @@ int xe_vm_bind_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 
 unwind_ops:
 	if (err && err != -ENODATA) {
-		xe_eudebug_vm_bind_end(vm, num_ufence > 0, err);
+		prelim_xe_eudebug_vm_bind_end(vm, num_ufence > 0, err);
 		vm_bind_ioctl_ops_unwind(vm, ops, args->num_binds);
 	}
 
