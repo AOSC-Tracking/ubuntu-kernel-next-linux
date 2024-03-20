@@ -18,7 +18,7 @@
 #include "xe_exec_queue.h"
 #include "xe_macros.h"
 #include "xe_sched_job_types.h"
-#include "xe_eudebug.h"
+#include "prelim/xe_eudebug.h"
 
 static void user_fence_destroy(struct kref *kref)
 {
@@ -28,7 +28,7 @@ static void user_fence_destroy(struct kref *kref)
 	mmdrop(ufence->mm);
 
 	if (ufence->eudebug.debugger)
-		xe_eudebug_put(ufence->eudebug.debugger);
+		prelim_xe_eudebug_put(ufence->eudebug.debugger);
 
 	kfree(ufence);
 }
@@ -72,7 +72,7 @@ static struct xe_user_fence *user_fence_create(struct xe_device *xe,
 	spin_unlock(&vm->eudebug_bind.lock);
 
 	if (bind_ref) {
-		ufence->eudebug.debugger = xe_eudebug_get(xef);
+		ufence->eudebug.debugger = prelim_xe_eudebug_get(xef);
 
 		if (ufence->eudebug.debugger)
 			ufence->eudebug.bind_ref_seqno = bind_ref;
@@ -104,7 +104,7 @@ static void user_fence_worker(struct work_struct *w)
 	WRITE_ONCE(ufence->signalled, 1);
 
 	/* Lets see if debugger wants to track this */
-	ret = xe_eudebug_vm_bind_ufence(ufence);
+	ret = prelim_xe_eudebug_vm_bind_ufence(ufence);
 	if (ret)
 		xe_sync_ufence_signal(ufence);
 

@@ -29,7 +29,7 @@ xe-y += xe_bb.o \
 	xe_bo.o \
 	xe_bo_evict.o \
 	xe_debugfs.o \
-	xe_debug_metadata.o \
+	prelim/xe_debug_metadata.o \
 	xe_devcoredump.o \
 	xe_device.o \
 	xe_device_sysfs.o \
@@ -50,7 +50,7 @@ xe-y += xe_bb.o \
 	xe_gt_debugfs.o \
 	xe_gt_freq.o \
 	xe_gt_idle.o \
-	xe_gt_debug.o \
+	prelim/xe_gt_debug.o \
 	xe_gt_mcr.o \
 	xe_gt_pagefault.o \
 	xe_gt_sysfs.o \
@@ -145,7 +145,7 @@ xe-$(CONFIG_PCI_IOV) += \
 	xe_pci_sriov.o \
 	xe_sriov_pf.o
 
-xe-$(CONFIG_DRM_XE_EUDEBUG) += xe_eudebug.o
+xe-$(CONFIG_PRELIM_DRM_XE_EUDEBUG) += prelim/xe_eudebug.o
 
 # include helpers for tests even when XE is built-in
 ifdef CONFIG_DRM_XE_KUNIT_TEST
