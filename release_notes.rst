@@ -25,3 +25,10 @@ Usage
 -------------------------
 1. Add "nohibernate" to host kernel cmdline to enable TDX on host.
 2. Disable kexec in kernel config for enabling TDX.
+
+-------------------------
+Known issue
+-------------------------
+1. Kexec and TDX conflict
+
+Workaround: Disable kexec, remove CONFIG_KEXEC_CORE, CONFIG_KEXEC, CONFIG_KEXEC_FILE, CONFIG_CRASH_DUMP in kernel config
