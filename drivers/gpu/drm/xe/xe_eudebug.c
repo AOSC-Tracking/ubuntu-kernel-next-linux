@@ -2945,7 +2945,7 @@ static int xe_eudebug_vma_access(struct xe_vma *vma, u64 offset,
 	if (bo)
 		return xe_eudebug_bovma_access(bo, offset, buf, bytes, write);
 
-	return -EOPNOTSUPP;
+	return xe_uvma_access(to_userptr_vma(vma), offset, buf, bytes, write);
 }
 
 static int xe_eudebug_vm_access(struct xe_vm *vm, u64 offset,
