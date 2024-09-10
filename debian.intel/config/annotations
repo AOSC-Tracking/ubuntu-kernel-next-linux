@@ -92,3 +92,4 @@ CONFIG_UV_MMTIMER                               policy<{'amd64': '-'}>
 CONFIG_UV_SYSFS                                 policy<{'amd64': '-'}>
 CONFIG_X86_AMD_PSTATE                           policy<{'amd64': 'n'}>
 CONFIG_X86_AMD_PSTATE_DEFAULT_MODE              policy<{'amd64': '-'}>
+CONFIG_PRELIM_DRM_XE_EUDEBUG                    policy<{'amd64': 'y'}>
