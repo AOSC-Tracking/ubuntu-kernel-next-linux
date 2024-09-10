@@ -5,3 +5,7 @@
 
 include "../../debian.master/config/annotations"
 
+
+# ---- Annotations without notes ----
+
+CONFIG_PRELIM_DRM_XE_EUDEBUG                    policy<{'amd64': 'y'}>
