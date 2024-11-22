@@ -47,7 +47,7 @@ Build-Depends:
  rustc [amd64],
  rust-src [amd64],
  rustfmt [amd64],
- bindgen-0.65 [amd64],
+ bindgen [amd64],
  libstdc++-dev,
 Build-Depends-Indep:
  xmlto <!stage1>,
