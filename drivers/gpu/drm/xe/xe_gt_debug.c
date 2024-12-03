@@ -22,13 +22,13 @@ int xe_gt_foreach_dss_group_instance(struct xe_gt *gt,
 				     void *data)
 {
 	const enum xe_force_wake_domains fw_domains = XE_FW_GT;
-	unsigned int dss, fw_ref;
+	unsigned int dss;
 	u16 group, instance;
 	int ret = 0;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), fw_domains);
-	if (!fw_ref)
-		return -ETIMEDOUT;
+	ret = xe_force_wake_get(gt_to_fw(gt), fw_domains);
+	if (ret)
+		return ret;
 
 	for_each_dss_steering(dss, gt, group, instance) {
 		ret = fn(gt, data, group, instance);
@@ -36,7 +36,7 @@ int xe_gt_foreach_dss_group_instance(struct xe_gt *gt,
 			break;
 	}
 
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt), fw_domains);
 
 	return ret;
 }
