@@ -1405,16 +1405,15 @@ static int __current_lrca(struct xe_hw_engine *hwe, u32 *lrc_hw)
 
 static int current_lrca(struct xe_hw_engine *hwe, u32 *lrc_hw)
 {
-	unsigned int fw_ref;
 	int ret;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(hwe->gt), hwe->domain);
-	if (!fw_ref)
-		return -ETIMEDOUT;
+	ret = xe_force_wake_get(gt_to_fw(hwe->gt), hwe->domain);
+	if (ret)
+		return ret;
 
 	ret = __current_lrca(hwe, lrc_hw);
 
-	xe_force_wake_put(gt_to_fw(hwe->gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(hwe->gt), hwe->domain);
 
 	return ret;
 }
@@ -1505,17 +1504,18 @@ static bool engine_has_runalone(const struct xe_hw_engine * const hwe)
 static struct xe_hw_engine *get_runalone_active_hw_engine(struct xe_gt *gt)
 {
 	struct xe_hw_engine *hwe, *first = NULL;
-	unsigned int num_active, id, fw_ref;
+	unsigned int num_active, id;
 	u32 val;
+	int ret;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), XE_FW_GT);
-	if (!fw_ref) {
+	ret = xe_force_wake_get(gt_to_fw(gt), XE_FW_GT);
+	if (ret) {
 		drm_dbg(&gt_to_xe(gt)->drm, "eudbg: runalone failed to get force wake\n");
 		return NULL;
 	}
 
 	val = xe_mmio_read32(gt, RCU_DEBUG_1);
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt), XE_FW_GT);
 
 	drm_dbg(&gt_to_xe(gt)->drm, "eudbg: runalone RCU_DEBUG_1 = 0x%08x\n", val);
 
@@ -1967,7 +1967,6 @@ static int xe_eu_control_interrupt_all(struct xe_eudebug *d,
 	struct xe_device *xe = d->xe;
 	struct xe_exec_queue *active;
 	struct xe_hw_engine *hwe;
-	unsigned int fw_ref;
 	int lrc_idx, ret;
 	u32 lrc_hw;
 	u32 td_ctl;
@@ -1991,9 +1990,9 @@ static int xe_eu_control_interrupt_all(struct xe_eudebug *d,
 	if (XE_IOCTL_DBG(xe, lrc_idx >= q->width || q->lrc[lrc_idx] != lrc))
 		return -EINVAL;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), hwe->domain);
-	if (!fw_ref)
-		return -ETIMEDOUT;
+	ret = xe_force_wake_get(gt_to_fw(gt), hwe->domain);
+	if (ret)
+		return ret;
 
 	/* Additional check just before issuing MMIO writes */
 	ret = __current_lrca(hwe, &lrc_hw);
@@ -2042,7 +2041,7 @@ static int xe_eu_control_interrupt_all(struct xe_eudebug *d,
 		eu_warn(d, "xe_eudebug: interrupted wrong context.");
 
 put_fw:
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt), hwe->domain);
 
 	return ret;
 }
@@ -3944,7 +3943,6 @@ static int engine_rcu_flush(struct xe_eudebug *d,
 {
 	const struct xe_reg psmi_addr = RING_PSMI_CTL(hwe->mmio_base);
 	struct xe_gt *gt = hwe->gt;
-	unsigned int fw_ref;
 	u32 mask = RCU_ASYNC_FLUSH_AND_INVALIDATE_ALL;
 	u32 psmi_ctrl;
 	u32 id;
@@ -3963,9 +3961,9 @@ static int engine_rcu_flush(struct xe_eudebug *d,
 		mask |= (id - 8) << RCU_ASYNC_FLUSH_ENGINE_ID_SHIFT |
 			RCU_ASYNC_FLUSH_ENGINE_ID_DECODE1;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), hwe->domain);
-	if (!fw_ref)
-		return -ETIMEDOUT;
+	ret = xe_force_wake_get(gt_to_fw(gt), hwe->domain);
+	if (ret)
+		return ret;
 
 	/* Prevent concurrent flushes */
 	mutex_lock(&d->eu_lock);
@@ -3990,7 +3988,7 @@ out:
 		xe_mmio_write32(gt, psmi_addr, _MASKED_BIT_DISABLE(IDLE_MSG_DISABLE));
 
 	mutex_unlock(&d->eu_lock);
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt), hwe->domain);
 
 	return ret;
 }
@@ -4246,7 +4244,7 @@ xe_eudebug_pagefault_create(struct xe_gt *gt, struct xe_vm *vm, u64 page_addr,
 	struct xe_exec_queue *q;
 	struct dma_fence *fence;
 	struct xe_eudebug *d;
-	unsigned int fw_ref;
+	int ret;
 	int lrc_idx;
 	u32 td_ctl;
 
@@ -4268,8 +4266,8 @@ xe_eudebug_pagefault_create(struct xe_gt *gt, struct xe_vm *vm, u64 page_addr,
 	if (!xe_exec_queue_is_debuggable(q))
 		goto err_put_exec_queue;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), q->hwe->domain);
-	if (!fw_ref)
+	ret = xe_force_wake_get(gt_to_fw(gt), q->hwe->domain);
+	if (ret)
 		goto err_put_exec_queue;
 
 	/*
@@ -4350,7 +4348,7 @@ xe_eudebug_pagefault_create(struct xe_gt *gt, struct xe_vm *vm, u64 page_addr,
 	pf->fault.level = fault_level;
 	pf->fault.access = access_type;
 
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt),  q->hwe->domain);
 	xe_eudebug_put(d);
 
 	return pf;
@@ -4360,7 +4358,7 @@ err_unlock_eu_lock:
 	attention_scan_flush(gt_to_xe(gt));
 	kfree(pf);
 err_put_fw:
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
+	xe_force_wake_put(gt_to_fw(gt), q->hwe->domain);
 err_put_exec_queue:
 	xe_exec_queue_put(q);
 err_put_eudebug:
@@ -4385,18 +4383,18 @@ xe_eudebug_pagefault_destroy(struct xe_gt *gt, struct xe_vm *vm,
 			     struct xe_eudebug_pagefault *pf, bool send_event)
 {
 	struct xe_eudebug *d;
-	unsigned int fw_ref;
+	int ret;
 	u32 td_ctl;
 
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), pf->q->hwe->domain);
-	if (!fw_ref) {
+	ret = xe_force_wake_get(gt_to_fw(gt), pf->q->hwe->domain);
+	if (ret) {
 		struct xe_device *xe = gt_to_xe(gt);
 		drm_warn(&xe->drm, "Forcewake fail: Can not recover TD_CTL");
 	} else {
 		td_ctl = xe_gt_mcr_unicast_read_any(gt, TD_CTL);
 		xe_gt_mcr_multicast_write(gt, TD_CTL, td_ctl &
 					  ~(TD_CTL_FORCE_EXTERNAL_HALT | TD_CTL_FORCE_EXCEPTION));
-		xe_force_wake_put(gt_to_fw(gt), fw_ref);
+		xe_force_wake_put(gt_to_fw(gt), pf->q->hwe->domain);
 	}
 
 	if (send_event)
