@@ -14,7 +14,7 @@
 
 #include "abi/guc_actions_abi.h"
 #include "xe_bo.h"
-#include "xe_eudebug.h"
+#include "prelim/xe_eudebug.h"
 #include "xe_gt.h"
 #include "xe_gt_tlb_invalidation.h"
 #include "xe_guc.h"
@@ -213,7 +213,7 @@ static int handle_pagefault_start(struct xe_gt *gt, struct pagefault *pf,
 	if (!vm)
 		return -EINVAL;
 
-	eudebug_pf = xe_eudebug_pagefault_create(gt, vm, pf->page_addr,
+	eudebug_pf = prelim_xe_eudebug_pagefault_create(gt, vm, pf->page_addr,
 						 pf->fault_type, pf->fault_level,
 						 pf->access_type);
 
@@ -259,7 +259,7 @@ unlock_vm:
 	up_write(&vm->lock);
 
 	if (destroy_eudebug_pf) {
-		xe_eudebug_pagefault_destroy(gt, vm, eudebug_pf, false);
+		prelim_xe_eudebug_pagefault_destroy(gt, vm, eudebug_pf, false);
 		*eudebug_pf_out = NULL;
 	} else {
 		*eudebug_pf_out = eudebug_pf;
@@ -284,13 +284,13 @@ static void handle_pagefault_end(struct xe_gt *gt, struct xe_vm *vm,
 	if (!eudebug_pf)
 		return;
 
-	xe_eudebug_pagefault_process(gt, eudebug_pf);
+	prelim_xe_eudebug_pagefault_process(gt, eudebug_pf);
 
 	/*
 	 * TODO: Remove VMA added to handle eudebug pagefault
 	 */
 
-	xe_eudebug_pagefault_destroy(gt, vm, eudebug_pf, true);
+	prelim_xe_eudebug_pagefault_destroy(gt, vm, eudebug_pf, true);
 
 	xe_vm_put(vm);
 }
