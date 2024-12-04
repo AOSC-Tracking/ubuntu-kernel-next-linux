@@ -1,0 +1,10 @@
+diff a/drivers/gpu/drm/xe/prelim/xe_eudebug.c b/drivers/gpu/drm/xe/prelim/xe_eudebug.c	(rejected hunks)
+@@ -4349,7 +4349,7 @@ xe_eudebug_pagefault_create(struct xe_gt *gt, struct xe_vm *vm, u64 page_addr,
+ 	pf->fault.access = access_type;
+ 
+ 	xe_force_wake_put(gt_to_fw(gt),  q->hwe->domain);
+-	xe_eudebug_put(d);
++	prelim_xe_eudebug_put(d);
+ 
+ 	return pf;
+ 
