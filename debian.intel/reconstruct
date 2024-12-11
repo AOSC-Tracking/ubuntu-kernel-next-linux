@@ -33,4 +33,11 @@ chmod +x 'debian/tests/rebuild'
 chmod +x 'debian/tests/ubuntu-regression-suite'
 chmod +x 'drivers/watchdog/f71808e_wdt.c'
 # Remove any files deleted from the orig.
+rm -f 'drivers/gpu/drm/xe/regs/xe_sriov_regs.h'
+rm -f 'drivers/gpu/drm/xe/tests/xe_bo_test.c'
+rm -f 'drivers/gpu/drm/xe/tests/xe_bo_test.h'
+rm -f 'drivers/gpu/drm/xe/tests/xe_dma_buf_test.c'
+rm -f 'drivers/gpu/drm/xe/tests/xe_dma_buf_test.h'
+rm -f 'drivers/gpu/drm/xe/tests/xe_migrate_test.c'
+rm -f 'drivers/gpu/drm/xe/tests/xe_migrate_test.h'
 exit 0
