@@ -28,6 +28,7 @@
 #include <linux/kfifo.h>
 #include <linux/sched/vhost_task.h>
 #include <linux/call_once.h>
+#include <linux/vmalloc.h>
 
 #include <asm/apic.h>
 #include <asm/pvclock-abi.h>
