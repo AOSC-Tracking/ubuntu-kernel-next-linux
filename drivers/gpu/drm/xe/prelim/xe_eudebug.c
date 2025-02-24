@@ -2055,7 +2055,7 @@ struct ss_iter {
 };
 
 static int check_attn_mcr(struct xe_gt *gt, void *data,
-			  u16 group, u16 instance)
+			  u16 group, u16 instance, bool present)
 {
 	struct ss_iter *iter = data;
 	struct xe_eudebug *d = iter->debugger;
@@ -2074,7 +2074,8 @@ static int check_attn_mcr(struct xe_gt *gt, void *data,
 		memcpy(&val, &iter->bits[iter->i], sizeof(val));
 		iter->i += sizeof(val);
 
-		cur = xe_gt_mcr_unicast_read(gt, TD_ATT(row), group, instance);
+		if (present)
+			cur = xe_gt_mcr_unicast_read(gt, TD_ATT(row), group, instance);
 
 		if ((val | cur) != cur) {
 			eu_dbg(d,
@@ -2088,7 +2089,7 @@ static int check_attn_mcr(struct xe_gt *gt, void *data,
 }
 
 static int clear_attn_mcr(struct xe_gt *gt, void *data,
-			  u16 group, u16 instance)
+			  u16 group, u16 instance, bool present)
 {
 	struct ss_iter *iter = data;
 	struct xe_eudebug *d = iter->debugger;
@@ -2110,12 +2111,18 @@ static int clear_attn_mcr(struct xe_gt *gt, void *data,
 		if (!val)
 			continue;
 
-		xe_gt_mcr_unicast_write(gt, TD_CLR(row), val,
-					group, instance);
+		if (present) {
+			xe_gt_mcr_unicast_write(gt, TD_CLR(row), val,
+						group, instance);
 
-		eu_dbg(d,
-		       "TD_CLR: (%u:%u:%u): 0x%08x\n",
-		       group, instance, row, val);
+			eu_dbg(d,
+			       "TD_CLR: (%u:%u:%u): 0x%08x\n",
+			       group, instance, row, val);
+		} else {
+			eu_warn(d,
+				"EU_ATT_CLR: (%u:%u:%u): 0x%08x to fused off dss\n",
+				group, instance, row, val);
+		}
 	}
 
 	return 0;
