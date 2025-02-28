@@ -739,6 +739,7 @@ static int find_rsb_dir(struct dlm_ls *ls, const void *name, int len,
 	error = dlm_search_rsb_tree(&ls->ls_rsbtbl, name, len, &r);
 	if (error) {
 		read_unlock_bh(&ls->ls_rsbtbl_lock);
+		error = -EBADR;
 		goto do_new;
 	}
 	
