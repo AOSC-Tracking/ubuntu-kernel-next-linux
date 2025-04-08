@@ -13,3 +13,10 @@ Others:
  - UBUNTU: SAUCE: modpost: support arbitrary symbol length in modversion
  - UBUNTU: SAUCE: allows to enable Rust with modversions
  - UBUNTU: SAUCE: modpost: Replace 0-length array with flex-array member
+
+6.15:
+ - UBUNTU: SAUCE: Revert "PCI/MSI: Mask MSI-X vectors only on success" -- fixed upstream
+ - UBUNTU: SAUCE: r8169: Add quirks to enable ASPM on Dell platforms -- fixed upstream
+ - UBUNTU: SAUCE: (no-up) Added quirk to recognize GE0301 3G modem as an interface. -- obsolete
+ - UBUNTU: SAUCE: (no-up) ACPI: Disable Windows 8 compatibility for some Lenovo ThinkPads -- likely obsolete
+ - UBUNTU: SAUCE: tools: use CC for linking acpi tools -- fixed upstream -- obsolete
