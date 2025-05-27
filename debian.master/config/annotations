@@ -5795,7 +5795,7 @@ CONFIG_HAVE_KVM_DIRTY_RING_ACQ_REL              policy<{'amd64': 'y', 'arm64': '
 CONFIG_HAVE_KVM_DIRTY_RING_TSO                  policy<{'amd64': 'y', 'arm64': '-'}>
 CONFIG_HAVE_KVM_INVALID_WAKEUPS                 policy<{'s390x': 'y'}>
 CONFIG_HAVE_KVM_IRQCHIP                         policy<{'amd64': 'y', 'arm64': 'y', 'ppc64el': 'y', 'riscv64': 'y', 's390x': 'y'}>
-CONFIG_HAVE_KVM_IRQ_BYPASS                      policy<{'amd64': 'y', 'arm64': 'y', 'ppc64el': 'y'}>
+CONFIG_HAVE_KVM_IRQ_BYPASS                      policy<{'amd64': 'm', 'arm64': 'y', 'ppc64el': 'y'}>
 CONFIG_HAVE_KVM_IRQ_ROUTING                     policy<{'amd64': 'y', 'arm64': 'y', 'riscv64': 'y', 's390x': 'y'}>
 CONFIG_HAVE_KVM_MSI                             policy<{'amd64': 'y', 'arm64': 'y', 'riscv64': 'y'}>
 CONFIG_HAVE_KVM_NO_POLL                         policy<{'amd64': 'y', 's390x': 'y'}>
@@ -7075,7 +7075,7 @@ CONFIG_IRQCHIP                                  policy<{'arm64': 'y', 'armhf': '
 CONFIG_IRQSOFF_TRACER                           policy<{'amd64': 'n', 'arm64': 'n', 'armhf': 'n', 'ppc64el': 'n', 'riscv64': 'n', 's390x': 'n'}>
 CONFIG_IRQSTACKS                                policy<{'armhf': 'y'}>
 CONFIG_IRQ_ALL_CPUS                             policy<{'ppc64el': 'y'}>
-CONFIG_IRQ_BYPASS_MANAGER                       policy<{'amd64': 'y', 'arm64': 'y', 'armhf': 'm', 'ppc64el': 'y', 'riscv64': 'm', 's390x': 'm'}>
+CONFIG_IRQ_BYPASS_MANAGER                       policy<{'amd64': 'm', 'arm64': 'y', 'armhf': 'm', 'ppc64el': 'y', 'riscv64': 'm', 's390x': 'm'}>
 CONFIG_IRQ_CROSSBAR                             policy<{'armhf': 'y'}>
 CONFIG_IRQ_DOMAIN                               policy<{'amd64': 'y', 'arm64': 'y', 'armhf': 'y', 'ppc64el': 'y', 'riscv64': 'y', 's390x': 'y'}>
 CONFIG_IRQ_DOMAIN_HIERARCHY                     policy<{'amd64': 'y', 'arm64': 'y', 'armhf': 'y', 'ppc64el': 'y', 'riscv64': 'y', 's390x': 'y'}>
